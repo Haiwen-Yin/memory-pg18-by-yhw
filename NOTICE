@@ -1,0 +1,92 @@
+memory-pg18-by-yhw - AI Agent Memory System with PostgreSQL 18 + Apache AGE
+===========================================================================
+
+Copyright (c) 2026 尹海文 (胖头鱼 🐟)
+
+This product includes software developed at
+Apache Software Foundation (http://www.apache.org/).
+
+---
+
+## 第三方组件与引用
+
+本项目依赖以下开源组件，遵循各自的许可证：
+
+### PostgreSQL Core Database
+- **URL**: https://www.postgresql.org/
+- **License**: PostgreSQL License (MIT-style)
+- **Version**: 18.x
+
+### pgvector - Vector Similarity Search for PostgreSQL
+- **GitHub**: https://github.com/pgvector/pgvector
+- **License**: Apache License 2.0
+- **Usage**: Vector type, HNSW index support, similarity functions
+
+### Apache AGE (Apache Graph Extension)
+- **URL**: https://age.apache.org/
+- **License**: Apache License 2.0
+- **Version**: 1.7.0
+- **Usage**: Property Graph support, Cypher query language
+
+### BGE-M3 Embedding Model (FlagEmbedding)
+- **GitHub**: https://github.com/FlagOpen/FlagEmbedding
+- **License**: Apache License 2.0
+- **Model**: BAAI/bge-m3
+- **Usage**: Text embedding generation (1024 dimensions)
+
+### HNSW Algorithm Research Paper
+- **Title**: Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs
+- **Authors**: Yuivii A. Malkov, Dmitry A. Yashunin
+- **URL**: https://arxiv.org/abs/1603.09320
+- **License**: Research Paper (for algorithm reference)
+
+---
+
+## 贡献者
+
+本项目接受社区贡献。如需提交代码或文档改进，请遵循以下流程：
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 发起 Pull Request
+
+---
+
+## 商标声明
+
+- **PostgreSQL** 是 PostgreSQL Foundation 的注册商标
+- **Apache**, **Apache AGE** 是 Apache Software Foundation 的注册商标或商标
+- **BGE-M3** 属于 BAAI (北京智源人工智能研究院)
+
+本项目的名称和标识符不授予任何使用上述商标的权利，除非符合商标使用政策。
+
+---
+
+## 法律声明
+
+根据 Apache License 2.0：
+
+1. 本软件按"原样"提供，不提供任何形式的明示或暗示保证
+2. 贡献者不对因使用本软件产生的任何直接、间接、特殊、偶然或后果性损害承担责任
+3. 重新分发时必须包含完整的许可证和版权声明
+4. 修改后的文件必须显著标示已更改
+
+---
+
+## 联系方式
+
+- **作者**: 尹海文 (胖头鱼 🐟)
+- **博客**: https://blog.csdn.net/yhw1809
+- **GitHub**: https://github.com/Haiwen-Yin
+- **位置**: 中国四川省成都市郫都区犀浦镇
+
+---
+
+## Apache License 2.0 全文
+
+完整的 Apache License 2.0 文本请参见本仓库的 LICENSE 文件。
+
+如需了解许可证条款，请访问：
+https://www.apache.org/licenses/LICENSE-2.0
