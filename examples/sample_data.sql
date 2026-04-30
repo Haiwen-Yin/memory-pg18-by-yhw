@@ -36,9 +36,13 @@ INSERT INTO memory.relations (from_concept_id, to_concept_id, relation_type, str
 COMMIT;
 
 -- Verification query
+-- Verify graph relationships using Cypher (requires AGE extension)
+-- IMPORTANT: Use dollar quoting $$...$$ for Cypher strings, not single quotes!
+SET search_path TO ag_catalog;
 SELECT 
-    from_c.name || ' --[' || r.relation_type || ']--> ' || to_c.name as graph_path,
-    r.strength as confidence
-FROM memory.relations r
-JOIN memory.concepts from_c ON r.from_concept_id = from_c.concept_id
-JOIN memory.concepts to_c ON r.to_concept_id = to_c.concept_id;
+    start_node->>'name' || ' --[' || relation_type || ']--> ' || end_node->>'name' as graph_path,
+    strength::float as confidence
+FROM cypher('memory_graph', $$
+    MATCH (node_a:concepts)-[r]->(node_b:concepts)
+    RETURN node_a.name, type(r), node_b.name, r.strength
+$$) AS (start_node agtype, relation_type agtype, end_node agtype, strength float);
