@@ -1,20 +1,30 @@
+---
+name: memory-pg18-by-yhw
+description: AI Agent Memory System (PostgreSQL 18 + Apache AGE) - Hybrid semantic search and graph-based relationship traversal toolkit for AI applications with vector embeddings and graph relationships.
+version: v0.3.0
+author: Haiwen Yin (Haiwen Yin - Database Expert)
+license: Apache License 2.0
+lastUpdated: 2026-04-30
+tags: [postgresql, age, vector, graph, memory, pg18]
+---
+
 # memory-pg18-by-yhw - AI Agent Memory System (PostgreSQL 18 + Apache AGE)
 
 ## Overview
 
 A production-ready, platform-agnostic AI Agent memory system built on PostgreSQL 18 with pgvector and Apache AGE Property Graph integration. This skill provides a complete toolkit for implementing hybrid semantic search and graph-based relationship traversal in AI applications.
 
-**Version**: v0.2.0  
-**Author**: Haiwen Yin (胖头鱼 🐟)  
+**Version**: v0.3.0  
+**Author**: Haiwen Yin (Haiwen Yin - Database Expert)  
 **License**: Apache License 2.0  
-**Last Updated**: 2026-04-19 CST
+**Last Updated**: 2026-04-30 CST
 
 ---
 
 ## 🎯 **What This Skill Does**
 
 This skill enables you to:
-1. Deploy a memory system with PostgreSQL 18 on any platform (Docker, bare metal, cloud)
+1. Deploy a memory system with PostgreSQL 18 on any platform (bare metal, cloud) using standard Linux installation
 2. Store AI knowledge as vectors (semantic embeddings) and concepts (graph nodes)
 3. Perform hybrid search combining vector similarity + graph relationship traversal
 4. Query relationships using Cypher for multi-hop reasoning
@@ -25,19 +35,20 @@ This skill enables you to:
 ## 📦 **Package Contents**
 
 ```
-memory-pg18-by-yhw-v0.2.0/
-├── README.md                    # Full project documentation (English)
-├── LICENSE                      # Apache License 2.0 full text
-├── NOTICE                       # Third-party attributions and legal notices
-├── VERSION                      # Version identifier (v0.2.0)
-├── .gitignore                   # Git ignore rules for this project
+memory-pg18-by-yhw-v0.3.0/
+├── SKILL.md                   # This skill file (v0.3.0)
+├── README.md                  # Full project documentation (English)
+├── LICENSE                    # Apache License 2.0 full text
+├── NOTICE                     # Third-party attributions and legal notices
+├── VERSION                    # Version identifier (v0.3.0)
+├── .gitignore                 # Git ignore rules for this project
 ├── docs/
-│   └── deployment-guide.md      # Detailed deployment instructions for various platforms
+│   └── deployment-guide.md    # Detailed deployment instructions for various platforms
 ├── scripts/
-│   └── init_memory_system.sql  # Complete database schema and setup SQL
+│   └── init_memory_system.sql # Complete database schema and setup SQL
 └── examples/
-    ├── basic_usage.py           # Python SDK example with BGE-M3 embeddings
-    └── sample_data.sql          # Sample INSERT statements for testing
+    ├── basic_usage.py         # Python SDK example with BGE-M3 embeddings
+    └── sample_data.sql        # Sample INSERT statements for testing
 ```
 
 ---
@@ -49,7 +60,7 @@ memory-pg18-by-yhw-v0.2.0/
 This skill implements a dual-layer memory architecture:
 
 1. **Semantic Layer (pgvector)**: 
-   - Stores concept embeddings as `VECTOR(1024)` columns
+   - Stores concept embeddings as `VECTOR(1024)` columns (BGE-M3 compatible)
    - Uses HNSW indexing for fast approximate nearest neighbor search
    - Enables cosine similarity matching for semantic queries
 
@@ -70,24 +81,31 @@ Pure vector search lacks explicit relationship modeling, while pure graph search
 
 ## 🚀 **Usage Guide**
 
-### 1. Quick Deployment (Docker)
+### 1. Quick Deployment (Standard Linux Installation)
 
+For Ubuntu/Debian systems:
 ```bash
-# Pull and start PostgreSQL 18 with extensions
-docker run -d --name pg-memory \
-  -e POSTGRES_PASSWORD=your_password \
-  -p 5432:5432 \
-  postgres:18-alpine
+# Install PostgreSQL 18 and extensions
+sudo apt update && sudo apt install postgresql-18 -y
+sudo apt install postgresql-18-vector postgresql-18-age -y
 
-# Install required extensions
-docker exec -it pg-memory psql -U postgres << 'EOSQL'
-CREATE EXTENSION vector;
-CREATE EXTENSION age;
-CREATE DATABASE memory_graph;
-EOSQL
+# Start PostgreSQL service
+sudo systemctl start postgresql@18-main
+sudo systemctl enable postgresql@18-main
+```
 
-# Connect and initialize
-docker exec -it pg-memory psql -U postgres -d memory_graph \
+For CentOS/RHEL systems:
+```bash
+# Add PostgreSQL repository (example for RHEL 9)
+curl https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/postgresql-pgdg-redhat-repo-latest.noarch.rpm | sudo rpm -Uvh
+
+# Install PostgreSQL 18 with extensions
+sudo yum install postgresql18-server postgresql18-vector postgresql18-age -y
+
+# Initialize and start PostgreSQL
+sudo /usr/pgsql-18/bin/postgresql-18-setup initdb
+sudo systemctl enable --now postgresql-18.service
+```
   -f /path/to/memory-pg18-by-yhw/scripts/init_memory_system.sql
 ```
 
@@ -129,12 +147,38 @@ cursor.execute("""
 
 ### 4. Graph Relationship Query (Cypher)
 
+**IMPORTANT: AGE PG18 Usage Notes:**
+
+1. **must set search path to ag_catalog**
+   ```sql
+   SET search_path TO ag_catalog;
+   ```
+
+2. **create graph requires explicit type cast**
+   ```sql
+   -- ✅ correct way (with ::name type cast)
+   SELECT create_graph('memory_knowledge'::name);
+   
+   -- ❌ incorrect way (will fail with error)
+   SELECT create_graph('memory_knowledge');
+   ```
+
+3. **Avoid SQL reserved words**
+   - don't use END, START and other keywords as variable names in Cypher
+   - use node_a, node_b instead of start, end
+
+4. **agtype attribute access requires CAST**
+   ```sql
+   MATCH (n) RETURN n.name::varchar, n.id::int
+   ```
+
 ```python
 # Find all relationships connected to a concept
 cursor.execute("""
+    SET search_path TO ag_catalog;
     SELECT * FROM cypher('memory_graph', $$
         MATCH (c:concepts {name: 'Concept Name'})-[:RELATION_TYPE]->(related:concepts)
-        RETURN c.name, type(rel), related.name, rel.strength
+        RETURN c.name::varchar, type(rel), related.name::varchar, rel.strength::float
     $$) AS (start_node agtype, relation_type agtype, end_node agtype, strength float);
 """)
 ```
@@ -230,7 +274,7 @@ EOSQL
 
 ### Performance Benchmark Script
 
-See `scripts/benchmark.py` (not included in v0.2.0 but available on request):
+See `scripts/benchmark.py` (not included in v0.3.0 but available on request):
 
 - Insert 1K sample records
 - Measure HNSW index build time
@@ -243,9 +287,57 @@ See `scripts/benchmark.py` (not included in v0.2.0 but available on request):
 
 ### Common Issues & Solutions
 
-#### Issue 1: PostgreSQL fails to start after extension installation
+#### Issue 1: AGE create_graph() function not found
 
-**Symptoms**: `FATAL:  could not load library ".../vector.so": file too short`  
+**Symptoms**: `ERROR: function create_graph(unknown) does not exist`  
+**Cause**: Missing type cast or search path not set  
+
+**Solution**:
+```sql
+-- Set search path first
+SET search_path TO ag_catalog;
+
+-- Use explicit type cast for graph name
+SELECT create_graph('graph_name'::name);
+```
+
+---
+
+#### Issue 2: AGE Cypher "unhandled cypher(cstring) function call"
+
+**Symptoms**: `ERROR: unhandled cypher(cstring) function call`  
+**Cause**: Using single quotes instead of dollar quoting for Cypher strings  
+
+**Solution**:
+```sql
+-- ✅ Correct: Use dollar quoting ($$...$$)
+SELECT * FROM cypher('graph_name', $$ RETURN 1 AS result $$) AS (result int);
+
+-- ❌ Incorrect: Single quotes cause issues
+SELECT * FROM cypher('graph_name', 'RETURN 1') AS (result int);
+```
+
+---
+
+#### Issue 3: AGE Cypher syntax error with SQL keywords (END, START)
+
+**Symptoms**: `ERROR: syntax error at or near "end"`  
+**Cause**: Using SQL reserved words as variable names in Cypher  
+
+**Solution**:
+```sql
+-- ❌ Incorrect - END is a SQL keyword
+MATCH p = (start)-[*1..3]->(end) RETURN length(p);
+
+-- ✅ Correct - Use alternative names
+MATCH p = (node_a)-[*1..3]->(node_b) RETURN length(p);
+```
+
+---
+
+#### Issue 4: PostgreSQL fails to start after extension installation
+
+**Symptoms**: `FATAL: could not load library ".../vector.so": file too short`  
 **Cause**: Extension binary incompatible with PG version or corrupted copy  
 
 **Solution**:
@@ -259,21 +351,9 @@ cat /usr/local/pgsql/share/extension/vector.control
 # Remove "microversion_format" parameter if present
 ```
 
-#### Issue 2: Cypher queries return empty results unexpectedly
+---
 
-**Symptoms**: `SELECT * FROM cypher(...) AS (...)` returns no rows despite data existing  
-
-**Cause**: Data inserted via SQL but not visible to AGE graph layer  
-**Solution**: Ensure you're using the correct database name in Cypher context:
-```sql
--- Correct usage - specify memory_graph as first argument
-SELECT * FROM cypher('memory_graph', $$ ... $$) AS (...);
-
--- Incorrect - missing database specification
-SELECT * FROM cypher($$ ... $$) AS (...);  -- This won't work!
-```
-
-#### Issue 3: Vector dimension mismatch errors
+#### Issue 5: Vector dimension mismatch errors
 
 **Symptoms**: `error: vector dimensions do not match`  
 
@@ -288,7 +368,7 @@ assert len(embedding) == 1024, f"Expected 1024 dims, got {len(embedding)}"
 ## 📚 **Related Skills**
 
 - `oracle-memory-by-yhw`: Oracle AI Database version of this memory system (v0.1.0)
-- `memory-pg18-by-yhw`: This PostgreSQL 18 + Apache AGE implementation (v0.2.0)
+- `memory-pg18-by-yhw`: This PostgreSQL 18 + Apache AGE implementation (v0.3.0)
 - `planning-with-files`: Manus-style file-based planning for complex tasks
 
 ---
@@ -303,7 +383,7 @@ For third-party component attributions and legal notices, see NOTICE file.
 
 ## 👤 **Author & Contributors**
 
-- **Original Author**: Haiwen Yin (胖头鱼 🐟) - Oracle/PostgreSQL/MySQL ACE Database Expert
+- **Original Author**: Haiwen Yin (Haiwen Yin - Database Expert) - Oracle/PostgreSQL/MySQL ACE Database Expert
 - **Blog**: https://blog.csdn.net/yhw1809
 - **GitHub**: https://github.com/Haiwen-Yin
 - **Location**: Xipu Town, Pidu District, Chengdu, Sichuan, China
@@ -314,8 +394,8 @@ For third-party component attributions and legal notices, see NOTICE file.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v0.3.0 | 2026-04-30 | AGE PG18 compatibility documentation, create_graph() type cast requirements, Cypher usage guidelines, vector dimension (1024 for BGE-M3) |
 | v0.2.0 | 2026-04-19 | Initial release with Apache AGE Property Graph support, Apache License 2.0 migration |
-| v0.1.0 | N/A | Previous Oracle AI Database version (separate skill) |
 
 ---
 
@@ -324,7 +404,7 @@ For third-party component attributions and legal notices, see NOTICE file.
 For issues, feature requests, or collaboration:
 - Open an issue on GitHub: https://github.com/Haiwen-Yin/memory-pg18-by-yhw/issues
 - Email: Available via blog contact form
-- WeChat: Search "胖头鱼" (available for Chinese speakers)
+- WeChat: Contact author via blog for WeChat communication
 
 ---
 
@@ -341,3 +421,41 @@ To understand the underlying technologies better:
 
 **Ready to deploy!** 🚀  
 For complete deployment instructions, see `docs/deployment-guide.md`.
+
+---
+
+## RELEASE NOTES (v0.3.0)
+
+### Release Date: 2026-04-30
+### Author: Haiwen Yin (Haiwen Yin - Database Expert)
+
+#### Summary
+v0.3.0 focuses on **AGE PG18 compatibility documentation** and **Cypher query usage guidelines**. This release provides critical information for using Apache AGE 1.7.0 with PostgreSQL 18, including proper type casting requirements and workarounds for known limitations.
+
+#### ✨ New Features & Documentation
+- **AGE PG18 Compatibility Guide**: Added comprehensive documentation on AGE 1.7.0 support for PostgreSQL 18; clarified that AGE has official PG18 build: `PG18/v1.7.0-rc0`
+- **Cypher Usage Guidelines**: Type casting requirement (`create_graph('graph_name'::name)`), dollar quoting emphasis, SQL keyword avoidance
+
+#### 🔧 Changes & Updates
+- **Vector Dimension Update**: 1024 dimensions (BGE-M3 standard) (BGE-M3 optimized for Chinese language embeddings)
+- **Documentation Improvements**: Updated all SQL examples to reflect PG18 + AGE 1.7.0 best practices, added Chinese language notes
+
+#### ⚠️ Important Notes for Upgrading from v0.2.0
+1. **AGE setup is critical**: Always run these commands before Cypher queries:
+   ```sql
+   SET search_path TO ag_catalog;
+   SELECT create_graph('your_graph_name'::name);
+   ```
+2. **Vector dimension change**: If using BGE-M3, vectors remain at 1024 dimensions by default
+3. **Cypher syntax matters**: Use dollar quoting `$$...$$`, never single quotes for Cypher strings
+
+#### 🧪 Testing Recommendations
+Before deploying v0.3.0 to production:
+1. Verify AGE extension is loaded: `SELECT extname FROM pg_extension WHERE extname = 'age';`
+2. Test graph creation with type cast: `SELECT create_graph('test'::name);`
+3. Run a simple Cypher query with dollar quoting
+4. Confirm vector operations work with your chosen dimension
+
+---
+
+**Enjoy using memory-pg18-by-yhw v0.3.0!** 🚀

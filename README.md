@@ -1,8 +1,8 @@
 # memory-pg18-by-yhw - AI Agent Memory System with PostgreSQL 18 + Apache AGE
 
-**Version**: v0.2.0  
-**Author**: Haiwen Yin (胖头鱼 🐟)  
-**Date**: 2026-04-19 CST  
+**Version**: v0.3.0  
+**Author**: Haiwen Yin - Database Expert  
+**Date**: 2026-04-30 CST  
 **License**: Apache License 2.0
 
 ---
@@ -20,31 +20,52 @@ An AI Agent memory system built on PostgreSQL 18 + pgvector + Apache AGE Propert
 
 ## 🚀 **Quick Start**
 
-### Step 1: Docker Deployment (Recommended)
+### Step 1: Install PostgreSQL 18 with Extensions (Standard Linux Installation)
 
+For Ubuntu/Debian systems:
 ```bash
-docker run -d --name pg-memory \
-  -e POSTGRES_PASSWORD=*** \
-  -p 5432:5432 \
-  postgres:18-alpine
+# Install PostgreSQL 18 and extensions
+sudo apt update && sudo apt install postgresql-18 -y
+sudo apt install postgresql-18-vector postgresql-18-age -y
 
-# Install extensions inside container
-docker exec -it pg-memory psql -U postgres << 'EOSQL'
-CREATE EXTENSION vector;
-CREATE EXTENSION age;
-CREATE DATABASE memory_graph;
-EOSQL
+# Start PostgreSQL service
+sudo systemctl start postgresql@18-main
+sudo systemctl enable postgresql@18-main
 ```
 
-### Step 2: Initialize Memory System
-
+For CentOS/RHEL systems:
 ```bash
-psql -U postgres -d memory_graph << 'EOSQL'
--- Create schema and tables
-CREATE SCHEMA IF NOT EXISTS memory;
+# Add PostgreSQL repository (example for RHEL 9)
+curl https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/postgresql-pgdg-redhat-repo-latest.noarch.rpm | sudo rpm -Uvh
 
-CREATE TABLE memory.concepts (
-    concept_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+# Install PostgreSQL 18 with extensions
+sudo yum install postgresql18-server postgresql18-vector postgresql18-age -y
+
+# Initialize and start PostgreSQL
+sudo /usr/pgsql-18/bin/postgresql-18-setup initdb
+sudo systemctl enable --now postgresql-18.service
+```
+
+### Step 2: Create Database and Schema
+
+Create the database if it doesn't exist:
+```bash
+psql -U postgres -c "CREATE DATABASE memory_graph;"
+```
+
+Then run the initialization script:
+```bash
+psql -U postgres -d memory_graph \
+  -f scripts/init_memory_system.sql
+```
+
+> **⚠️ AGE PG18 Critical Setup Requirements**: Before running any Cypher queries, execute these commands in every session:
+> ```sql
+> SET search_path TO ag_catalog;
+> SELECT create_graph('memory_graph'::name);  -- Note: ::name type cast is REQUIRED!
+> ```
+
+This ensures Cypher functions are accessible and the graph object exists. Without this setup, you will encounter errors like "function cypher(unknown) does not exist" when attempting graph queries.
     name VARCHAR(256) NOT NULL,
     category VARCHAR(128),
     description TEXT,
@@ -75,13 +96,13 @@ EOSQL
 ```bash
 psql -U postgres -d memory_graph << 'EOSQL'
 INSERT INTO memory.concepts (name, category, description) VALUES
-    ('胖头鱼 🐟', 'user_profile', 'Oracle/PostgreSQL/MySQL ACE Database Expert'),
+    ('Haiwen Yin - DB Expert', 'user_profile', 'Oracle/PostgreSQL/MySQL ACE Database Expert'),
     ('Oracle AI Database', 'knowledge_base', 'Oracle AI Database Enterprise Edition v23.26.1'),
     ('Apache AGE', 'technology', 'PostgreSQL Property Graph extension');
 
 -- Create relationships using Cypher
 SELECT * FROM cypher('memory_graph', $$
-    MATCH (a:concepts {name: '胖头鱼 🐟'}), 
+    MATCH (a:concepts {name: 'Haiwen Yin - DB Expert'}), 
           (b:concepts {name: 'Oracle AI Database'})
     CREATE (a)-[:RELATED_TO]->(b)
 $$) AS (result agtype);
@@ -114,8 +135,8 @@ SELECT
     end_node.name,
     type(rel) as relation_type
 FROM cypher('memory_graph', $$
-    MATCH path = (start:concepts)-[rel]->(end:concepts)
-    RETURN start, end, rel
+    MATCH path = (node_a:concepts)-[rel]->(node_b:concepts)
+    RETURN node_a, node_b, rel
 $$) AS (start_node agtype, end_node agtype, rel agtype);
 EOSQL
 ```
@@ -150,5 +171,5 @@ See LICENSE file for full license terms.
 
 ---
 
-**Last Updated**: 2026-04-19  
-**Version History**: v0.2.0 (Initial release with Property Graph support)
+**Last Updated**: 2026-04-30  
+**Version History**: v0.3.0 (AGE PG18 compatibility documentation + Cypher usage guidelines)
