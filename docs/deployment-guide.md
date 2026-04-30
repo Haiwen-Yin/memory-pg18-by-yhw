@@ -1,83 +1,56 @@
-# PostgreSQL 18 + pgvector + Apache AGE Deployment Guide
+# PostgreSQL 18 + pgvector + Apache AGE Deployment Guide (Standard Linux Installation)
 
-**版本**: v0.2.0  
-**适用系统**: RHEL 8.x / CentOS Stream 8 / Ubuntu 24.04
+**Version**: v0.3.0  
+**Applicable Systems**: RHEL 9.x / CentOS Stream 9 / Ubuntu 24.04 LTS
 
 ---
 
-## 📋 **环境要求**
+## 📋 **System Requirements**
 
 | Component | Minimum | Recommended |
 |--|--|--:|
 | CPU | 4 cores | 8+ cores |
 | RAM | 8 GB | 16+ GB |
 | Disk | 50 GB SSD | 100+ GB NVMe |
-| OS | RHEL 8 / Ubuntu 22.04 | Ubuntu 24.04 LTS |
+| OS | RHEL 9 / Ubuntu 22.04 | Ubuntu 24.04 LTS |
 
 ---
 
-## 🐳 **Option A: Docker Deployment (推荐)**
+## 💻 **Standard Linux Installation Guide**
 
-### Step 1: Pull PostgreSQL 18 Image
+### Step 1: Install PostgreSQL 18 with Extensions
+
+#### Ubuntu/Debian Systems
 ```bash
-docker pull postgres:18-alpine
+# Update package lists and install PostgreSQL 18
+sudo apt update && sudo apt install postgresql-18 -y
+
+# Install pgvector extension (if available in repository)
+sudo apt install postgresql-18-vector -y || echo "pgvector not found in repos, will compile manually"
+
+# Start PostgreSQL service
+sudo systemctl start postgresql@18-main
+sudo systemctl enable postgresql@18-main
 ```
 
-### Step 2: Create Custom Image with Extensions
-```Dockerfile
-FROM postgres:18-alpine
+#### CentOS/RHEL 9 Systems
+```bash
+# Add PostgreSQL repository for RHEL 9
+curl https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/postgresql-pgdg-redhat-repo-latest.noarch.rpm | sudo rpm -Uvh
 
-# Install dependencies for pgvector and AGE
-RUN apk add --no-cache git make gcc musl-dev linux-headers cmake ninja
+# Install PostgreSQL 18 server and vector extension
+sudo yum install postgresql18-server postgresql18-vector -y
 
-# Clone and build pgvector
-RUN git clone https://github.com/pgvector/pgvector.git /tmp/pgvector \
-    && cd /tmp/pgvector \
-    && make PG_CONFIG=/usr/local/bin/pg_config \
-    && make install PG_CONFIG=/usr/local/bin/pg_config
+# Initialize database cluster
+sudo /usr/pgsql-18/bin/postgresql-18-setup initdb
 
-# Clone and build Apache AGE
-RUN git clone https://github.com/apache/age.git /tmp/age \
-    && cd /tmp/age \
-    && git checkout tags/v1.7.0 \
-    && make PG_CONFIG=/usr/local/bin/pg_config \
-    && make install PG_CONFIG=/usr/local/bin/pg_config
-
-# Clean up
-RUN rm -rf /tmp/pgvector /tmp/age
+# Start PostgreSQL service
+sudo systemctl enable --now postgresql-18.service
 ```
 
-### Step 3: Build and Run Container
-```bash
-docker build -t memory-pg18 .
+### Step 2: Install Apache AGE Extension (If Not Available in Repos)
 
-docker run -d --name pg-memory \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  -v pg-data:/var/lib/postgresql/data \
-  --memory=4g --memory-swap=4g \
-  memory-pg18
-
-# Verify installation
-docker exec -it pg-memory psql -U postgres << 'EOSQL'
-CREATE EXTENSION vector;
-CREATE EXTENSION age;
-CREATE DATABASE memory_graph;
-EOSQL
-```
-
----
-
-## 💻 **Option B: Native Installation (Linux)**
-
-### Step 1: Install PostgreSQL 18
-
-#### RHEL/CentOS Stream 8
-```bash
-# Enable PGDG repository
-sudo dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-
-# Install PostgreSQL 18
+For systems where AGE extension is not pre-packaged, compile from source:
 sudo dnf install -y postgresql18-server postgresql18-contrib
 
 # Initialize cluster
@@ -125,24 +98,107 @@ make PG_CONFIG=/usr/bin/pg_config
 sudo make install PG_CONFIG=/usr/bin/pg_config
 ```
 
-#### Option B: From RPM (CentOS/RHEL)
+#### Option B: From RPM (RHEL/CentOS 9+)
 ```bash
-wget https://apache.jfrog.io/artifactory/age/rpm/latest/el8/x86_64/apache-age-1.7.0.rpm
+wget https://apache.jfrog.io/artifactory/age/rpm/latest/el9/x86_64/apache-age-1.7.0.rpm
 sudo rpm -ivh --force apache-age-1.7.0.rpm
 ```
 
-### Step 4: Configure PostgreSQL
+### Step 4: Configure PostgreSQL Extensions
 
-Edit `/etc/postgresql/18/main/postgresql.conf`:
+Edit the PostgreSQL configuration file to load extensions on startup:
+
+**For Ubuntu/Debian:**
+```bash
+sudo nano /etc/postgresql/18/main/postgresql.conf
+```
+
+**For RHEL/CentOS:**
+```bash
+sudo nano /var/lib/pgsql/data/postgresql.conf
+```
+
+Add or uncomment these lines in the configuration file:
 ```ini
 shared_preload_libraries = 'age, vector'
 listen_addresses = '*'
 max_connections = 200
 ```
 
-Restart PostgreSQL:
+Restart PostgreSQL service to apply changes:
+**Ubuntu/Debian:**
 ```bash
-sudo systemctl restart postgresql-18
+sudo systemctl restart postgresql@18-main
+```
+
+**RHEL/CentOS:**
+```bash
+sudo systemctl restart postgresql-18.service
+```
+
+---
+
+## ⚠️ **AGE PG18 Critical Setup Requirements**
+
+> **🔥 IMPORTANT**: These requirements are specific to AGE 1.7.0 on PostgreSQL 18 and must be followed for Cypher queries to work correctly.
+
+### Requirement 1: Always Set Search Path Before Cypher Queries
+```sql
+SET search_path TO ag_catalog;
+```
+
+Without this, Cypher functions will not be found.
+
+---
+
+### Requirement 2: create_graph() Requires Type Cast (::name)
+
+**❌ INCORRECT - Will fail with:** `ERROR: function create_graph(unknown) does not exist`
+```sql
+SELECT create_graph('memory_graph');
+```
+
+**✅ CORRECT - Always use ::name cast:**
+```sql
+SELECT create_graph('memory_graph'::name);
+```
+
+---
+
+### Requirement 3: Use Dollar Quoting for Cypher Strings
+
+**❌ INCORRECT - Will fail with:** `ERROR: unhandled cypher(cstring) function call`
+```sql
+SELECT * FROM cypher('graph', 'RETURN 1');
+```
+
+**✅ CORRECT - Always use $$...$$:**
+```sql
+SELECT * FROM cypher('graph', $$ RETURN 1 $$);
+```
+
+---
+
+### Requirement 4: Avoid SQL Reserved Words in Cypher Variables
+
+**❌ INCORRECT**: `start` and `end` are SQL reserved words
+```sql
+MATCH (start)-[r]->(end) RETURN start, end;
+```
+
+**✅ CORRECT - Use alternative names:**
+```sql
+MATCH (node_a)-[r]->(node_b) RETURN node_a, node_b;
+```
+
+---
+
+### Quick Setup Checklist for Cypher Queries
+
+Before running any Cypher query, execute these commands first:
+```sql
+SET search_path TO ag_catalog;
+SELECT create_graph('your_graph_name'::name);
 ```
 
 ---
@@ -196,5 +252,5 @@ pg_dump -d memory_graph -f /backup/memory_graph_$(date +%Y%m%d).sql
 
 ---
 
-**版本**: v0.2.0  
-**最后更新**: 2026-04-19 CST
+**Version**: v0.3.0  
+**Last Updated**: 2026-04-30 CST (Standard Linux Installation Guide)
